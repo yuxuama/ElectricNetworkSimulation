@@ -63,17 +63,19 @@ class Edge:
 
 """
 Graph structure using adjacency list to represent graph
+Vertex (list): Stored in the 'nodes' list as Node object
+Edges (list): Stored in the 'edges' list as Edge object
+Network (dict): storing all the links coming from an edge (represented by its index in list)
 """
 
 
 class Graph:
-    """Standard graph representation
-    We will rather use adjacency list to represent links
-    """
+    """Standard graph representation"""
 
     def __init__(self):
         self.nodes = []
         self.edges = []
+        self.network = {}
 
     def add_nodes(self, node_list):
         for i in range(len(node_list)):
@@ -86,3 +88,54 @@ class Graph:
     def add_multiple_link(self, start, index_list):
         for end, cap in index_list:
             self.add_link(start, end, cap)
+
+    def update_network(self):
+        pass
+
+    def update_network_from_list(self):
+        pass
+
+
+class FlowNetwork(Graph):
+    """Flow Network implementation"""
+
+    def __init__(self):
+        super(FlowNetwork, self).__init__()
+        self.source = None
+        self.sink = None
+
+    def add_source(self, index):
+        if self.source is None:
+            assert index < len(self.nodes)
+            self.source = index
+        else:
+            assert index < len(self.nodes)
+            self.source = index
+            print("Warning: you changed the source of the Flow Network even though it was already defined")
+
+    def add_sink(self, index):
+        if self.source is None:
+            assert index < len(self.nodes)
+            self.sink = index
+        else:
+            assert index < len(self.nodes)
+            self.source = index
+            print("Warning: you changed the sink of the Flow Network even though it was already defined")
+
+    def get_path(self):
+        """Find a path from source to sink"""
+        # TODO: implement the function (probably recursively)
+        pass
+
+    def max_flow(self):
+        """Compute the max flow of the flow network"""
+        # TODO: completing the algorithm
+        if self.source is None or self.sink is None:
+            raise "The source or sink is not correctly defined"
+        elif self.source == self.edges:
+            return 0
+        else:
+            return
+
+
+
