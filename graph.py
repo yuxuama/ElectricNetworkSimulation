@@ -50,6 +50,18 @@ class NeutralNode(Node):
 
 
 """
+Edge of modular capacity
+"""
+
+
+class Edge:
+    def __init__(self, start, end, cap):
+        self.start = start
+        self.end = end
+        self.cap = cap
+
+
+"""
 Graph structure using adjacency list to represent graph
 """
 
@@ -61,23 +73,16 @@ class Graph:
 
     def __init__(self):
         self.nodes = []
-        self.adjacency = []
-
-    def update_adjacency(self, n):
-        for i in range(n):
-            self.adjacency.append([])
+        self.edges = []
 
     def add_nodes(self, node_list):
         for i in range(len(node_list)):
             node_list[i].set_index(i + len(self.nodes) - 1)
             self.nodes.append(node_list[i])
-        self.update_adjacency(len(node_list))
 
-    def add_link(self, i1, i2):
-        self.adjacency[i1].append(i2)
-        self.adjacency[i2].append(i1)
+    def add_link(self, start, end, cap):
+        self.edges.append(Edge(start, end, cap))
 
-    def add_multiple_link(self, index, index_list):
-        for elem in index_list:
-            self.adjacency[index].append(elem)
-            self.adjacency[elem].append(index)
+    def add_multiple_link(self, start, index_list):
+        for end, cap in index_list:
+            self.add_link(start, end, cap)
