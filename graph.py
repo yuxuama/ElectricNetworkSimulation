@@ -143,7 +143,7 @@ class FlowNetwork(Graph):
                 if e.get_residual_cap() > 0:
                     res = recursive_get_path(e.end)
                     if res is not None:
-                        res[0] = [e] + res[0]
+                        res[0].append(e)
                         res[1] = min(res[1], e.get_residual_cap())
                         return res
 
