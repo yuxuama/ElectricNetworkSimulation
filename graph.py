@@ -116,19 +116,19 @@ class FlowNetwork(Graph):
 
     def add_source(self, index):
         if self.source is None:
-            assert index < len(self.nodes)
+            assert index in self.nodes
             self.source = index
         else:
-            assert index < len(self.nodes)
+            assert index in self.nodes
             self.source = index
             print("Warning: you changed the source of the Flow Network even though it was already defined")
 
     def add_sink(self, index):
         if self.sink is None:
-            assert index < len(self.nodes)
+            assert index in self.nodes
             self.sink = index
         else:
-            assert index < len(self.nodes)
+            assert index in self.nodes
             self.source = index
             print("Warning: you changed the sink of the Flow Network even though it was already defined")
 
@@ -136,10 +136,10 @@ class FlowNetwork(Graph):
         """Find a path from source to sink"""
         assert self.source is not None and self.sink is not None
 
-        def recursive_get_path(nstart):
-            if nstart == self.sink:
+        def recursive_get_path(start):
+            if start == self.sink:
                 return [[], float('+inf')]
-            for e in self.network[nstart]:
+            for e in self.network[start]:
                 if e.get_residual_cap() > 0:
                     res = recursive_get_path(e.end)
                     if res is not None:
@@ -151,10 +151,9 @@ class FlowNetwork(Graph):
 
     def max_flow(self):
         """Compute the max flow of the flow network"""
-        # TODO: completing the algorithm
         if self.source is None or self.sink is None:
             raise "The source or sink is not correctly defined"
-        elif self.source == self.edges:
+        elif self.source == self.sink:
             return 0
         else:
             flow = 0
@@ -165,5 +164,3 @@ class FlowNetwork(Graph):
                 flow += res[1]
                 for e in res[0]:
                     e.flow += res[1]
-
-

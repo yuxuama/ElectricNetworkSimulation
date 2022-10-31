@@ -1,4 +1,4 @@
-from graph import SourceNode, ConsumerNode, NeutralNode, FlowNetwork
+from graph import SourceNode, ConsumerNode, NeutralNode, FlowNetwork, Node
 
 if __name__ == '__main__':
     fn = FlowNetwork()
@@ -15,5 +15,5 @@ if __name__ == '__main__':
     fn.add_link(0, 2, 2)
     fn.add_link(1, 2, 3)
     fn.add_link(1, 3, 1)
-    fn.add_link(2, 3, 6)
+    fn.add_link(2, 3, 4)
     print(fn.max_flow())
