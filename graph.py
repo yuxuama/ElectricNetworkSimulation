@@ -56,9 +56,13 @@ class Edge:
         self.start = start
         self.end = end
         self.cap = cap
+        self.flow = 0
 
     def __hash__(self):
         return hash((self.start, self.end))
+
+    def get_residual_cap(self):
+        return self.cap - self.flow
 
 
 """
@@ -90,9 +94,9 @@ class Graph:
         if e not in self.in_network_edges:
             self.edges.append(e)
             if e.start not in self.network:
-                self.network[e.start] = [(e.end, e.cap)]
+                self.network[e.start] = [e]
             else:
-                self.network[e.start].append((e.end, e.cap))
+                self.network[e.start].append(e)
             self.in_network_edges[e] = None
         else:
             print("Warning: you added an already existed edge (multiple edges are not handled)")
@@ -100,12 +104,6 @@ class Graph:
     def add_multiple_link(self, start, index_list):
         for end, cap in index_list:
             self.add_link(start, end, cap)
-
-    def get_path(self, start, end):
-        """Find a path from source to sink"""
-        assert start in self.nodes and end in self.nodes
-        # TODO: implement the function (probably recursively)
-        pass
 
 
 class FlowNetwork(Graph):
@@ -126,13 +124,30 @@ class FlowNetwork(Graph):
             print("Warning: you changed the source of the Flow Network even though it was already defined")
 
     def add_sink(self, index):
-        if self.source is None:
+        if self.sink is None:
             assert index < len(self.nodes)
             self.sink = index
         else:
             assert index < len(self.nodes)
             self.source = index
             print("Warning: you changed the sink of the Flow Network even though it was already defined")
+
+    def get_path(self):
+        """Find a path from source to sink"""
+        assert self.source is not None and self.sink is not None
+
+        def recursive_get_path(nstart):
+            if nstart == self.sink:
+                return [[], float('+inf')]
+            for e in self.network[nstart]:
+                if e.get_residual_cap() > 0:
+                    res = recursive_get_path(e.end)
+                    if res is not None:
+                        res[0] = [e] + res[0]
+                        res[1] = min(res[1], e.get_residual_cap())
+                        return res
+
+        return recursive_get_path(self.source)
 
     def max_flow(self):
         """Compute the max flow of the flow network"""
@@ -142,4 +157,13 @@ class FlowNetwork(Graph):
         elif self.source == self.edges:
             return 0
         else:
-            return
+            flow = 0
+            while True:
+                res = self.get_path()
+                if res is None:
+                    return flow
+                flow += res[1]
+                for e in res[0]:
+                    e.flow += res[1]
+
+
