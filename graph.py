@@ -8,10 +8,10 @@ class Node:
 
     nature_poss = ["source", "consumer", "other"]
 
-    def __init__(self, nature):
+    def __init__(self, nature, index):
         assert nature in Node.nature_poss
         self.nature = nature
-        self.index = None
+        self.index = index
 
     def set_index(self, index):
         self.index = index
@@ -19,34 +19,31 @@ class Node:
 
 class SourceNode(Node):
 
-    def __init__(self, value):
-        self.value = value
-        super(SourceNode, self).__init__("source")
+    def __init__(self, value, label):
+        self.value = value  # Note that value can be a function
+        super(SourceNode, self).__init__("source", label)
 
     def __str__(self):
-        return "Source node producing {0} and labeled {1} in the current graph".format(self.value,
-                                                                                       super(SourceNode, self).index)
+        return "Source node producing {0} and labeled {1} in the current graph".format(self.value, self.index)
 
 
 class ConsumerNode(Node):
 
-    def __init__(self, value):
-        self.value = value
-        super(ConsumerNode, self).__init__("source")
+    def __init__(self, value, label):
+        self.value = value  # Note that value can be a function
+        super(ConsumerNode, self).__init__("consumer", label)
 
     def __str__(self):
-        return "Consumer node producing {0} and labeled {1} in the current graph".format(self.value,
-                                                                                         super(ConsumerNode,
-                                                                                               self).index)
+        return "Consumer node producing {0} and labeled {1} in the current graph".format(self.value, self.index)
 
 
 class NeutralNode(Node):
 
-    def __init__(self):
-        super(NeutralNode, self).__init__("source")
+    def __init__(self, label):
+        super(NeutralNode, self).__init__("other", label)
 
     def __str__(self):
-        return "Node labeled {0} in the current graph".format(super(NeutralNode, self).index)
+        return "Node labeled {0} in the current graph".format(self.index)
 
 
 """
@@ -59,6 +56,9 @@ class Edge:
         self.start = start
         self.end = end
         self.cap = cap
+
+    def __hash__(self):
+        return hash((self.start, self.end))
 
 
 """
@@ -73,31 +73,43 @@ class Graph:
     """Standard graph representation"""
 
     def __init__(self):
-        self.nodes = []
+        self.nodes = {}
         self.edges = []
         self.network = {}
+        self.in_network_edges = {}
 
     def add_nodes(self, node_list):
         for i in range(len(node_list)):
-            node_list[i].set_index(i + len(self.nodes) - 1)
-            self.nodes.append(node_list[i])
+            if node_list[i].index in self.nodes:
+                raise "Label conflict: the label of each Node must be unique"
+            self.nodes[node_list[i].index] = node_list[i]
 
     def add_link(self, start, end, cap):
-        self.edges.append(Edge(start, end, cap))
+        e = Edge(start, end, cap)
+        assert start in self.nodes and end in self.nodes
+        if e not in self.in_network_edges:
+            self.edges.append(e)
+            if e.start not in self.network:
+                self.network[e.start] = [(e.end, e.cap)]
+            else:
+                self.network[e.start].append((e.end, e.cap))
+            self.in_network_edges[e] = None
+        else:
+            print("Warning: you added an already existed edge (multiple edges are not handled)")
 
     def add_multiple_link(self, start, index_list):
         for end, cap in index_list:
             self.add_link(start, end, cap)
 
-    def update_network(self):
-        pass
-
-    def update_network_from_list(self):
+    def get_path(self, start, end):
+        """Find a path from source to sink"""
+        assert start in self.nodes and end in self.nodes
+        # TODO: implement the function (probably recursively)
         pass
 
 
 class FlowNetwork(Graph):
-    """Flow Network implementation"""
+    """Flow Network implementation (one source, one sink)"""
 
     def __init__(self):
         super(FlowNetwork, self).__init__()
@@ -122,11 +134,6 @@ class FlowNetwork(Graph):
             self.source = index
             print("Warning: you changed the sink of the Flow Network even though it was already defined")
 
-    def get_path(self):
-        """Find a path from source to sink"""
-        # TODO: implement the function (probably recursively)
-        pass
-
     def max_flow(self):
         """Compute the max flow of the flow network"""
         # TODO: completing the algorithm
@@ -136,6 +143,3 @@ class FlowNetwork(Graph):
             return 0
         else:
             return
-
-
-
