@@ -1,3 +1,5 @@
+from file import File
+
 """
 Node class so as to handle source/consumer/other type of node having different behavior
 """
@@ -59,7 +61,7 @@ class Edge:
         self.flow = 0
 
     def __str__(self):
-        return "Edge from {0} to {1} having a cap of {2}".format(self.start, self.end, self.cap)
+        return "Edge from {0} to {1} having a residual cap of {2}".format(self.start, self.end, self.get_residual_cap())
 
     def get_residual_cap(self):
         return self.cap - self.flow
@@ -115,6 +117,13 @@ class Graph:
                 return True
         return False
 
+    def find_edge(self, start, end):
+        if self.is_edge(start, end):
+            for e in self.network[start]:
+                if e.end == end:
+                    return e
+        return None
+
 
 class FlowNetwork(Graph):
     """Flow Network implementation (one source, one sink)"""
@@ -142,7 +151,7 @@ class FlowNetwork(Graph):
             self.source = index
             print("Warning: you changed the sink of the Flow Network even though it was already defined")
 
-    def get_path(self):
+    def get_path_recursive(self):
         """Find a path from source to sink and give its minimum cap"""
         assert self.source is not None and self.sink is not None
 
@@ -159,16 +168,54 @@ class FlowNetwork(Graph):
 
         return recursive_get_path(self.source)
 
+    def get_path(self):
+        """Find a path from source to sink and give its minimum cap
+        width-first-search
+        """
+        assert self.source is not None and self.sink is not None
+
+        # Width first search
+        file = File()
+        prev = [-1 for _ in range(len(self.nodes))]
+        deja_vu = [False for _ in range(len(self.nodes))]
+        file.add(self.source)
+        deja_vu[self.source] = True
+        while not file.is_empty():
+            v = file.pop()
+            deja_vu[v] = True
+            if v == self.sink:
+                break
+            for e in self.network[v]:
+                if not deja_vu[e.end] and e.get_residual_cap() > 0:
+                    file.add(e.end)
+                    prev[e.end] = v
+
+        # tracking back the path and getting the minimum cap
+        path = []
+        mini = float('+inf')
+        p = self.sink
+        if prev[p] == -1:
+            return None
+        while p != self.source:
+            temp = p
+            p = prev[p]
+            edge = self.find_edge(p, temp)
+            if edge is None:
+                print(p, temp)
+            mini = min(edge.get_residual_cap(), mini)
+            path.append(edge)
+        path.reverse()  # Not useful in case of ford-fulkerson
+        return path, mini
+
     def ford_fulkerson(self):
         """Apply the ford-fulkerson algorithm to this flow network"""
         if self.source is None or self.sink is None:
             return -1
-        elif self.source == self.sink:
-            return 0
         else:
             flow = 0
             residual = self.copy()
             path = residual.get_path()
+            count = 0
             while path is not None:
                 flow += path[1]
                 for edges in path[0]:
@@ -179,10 +226,11 @@ class FlowNetwork(Graph):
                         self.in_network_edges[cre].flow -= path[1]
                     else:
                         if not residual.is_edge(cre[0], cre[1]):
-                            residual.add_link(edges.end, edges.start, edges.cap)
+                            residual.add_link(edges.end, edges.start, 0)
                         residual.in_network_edges[cre].cap += path[1]
                         self.in_network_edges[ce].flow += path[1]
                 path = residual.get_path()
+                count += 1
             return flow
 
     def copy(self):
