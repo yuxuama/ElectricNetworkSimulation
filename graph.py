@@ -194,14 +194,12 @@ class FlowNetwork(Graph):
         path = []
         mini = float('+inf')
         p = self.sink
-        if prev[p] == -1:
+        if prev[p] == -1:  # If no path leads to the sink
             return None
         while p != self.source:
             temp = p
             p = prev[p]
             edge = self.find_edge(p, temp)
-            if edge is None:
-                print(p, temp)
             mini = min(edge.get_residual_cap(), mini)
             path.append(edge)
         path.reverse()  # Not useful in case of ford-fulkerson
