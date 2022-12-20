@@ -58,8 +58,8 @@ class Edge:
         self.cap = cap
         self.flow = 0
 
-    def __hash__(self):
-        return hash((self.start, self.end))
+    def __str__(self):
+        return "Edge from {0} to {1} having a cap of {2}".format(self.start, self.end, self.cap)
 
     def get_residual_cap(self):
         return self.cap - self.flow
@@ -77,33 +77,43 @@ class Graph:
     """Standard graph representation"""
 
     def __init__(self):
-        self.nodes = {}
-        self.edges = []
-        self.network = {}
-        self.in_network_edges = {}
+        self.nodes = {}  # 'Set' of vertices
+        self.network = {}  # provide all successor of an edge
+        self.in_network_edges = {}  # Allow fast recognition of already existing edges
 
-    def add_nodes(self, node_list):
+    def add_node(self, node):
+        if node.index in self.nodes:
+            raise "Label conflict: the label of each Node must be unique"
+        self.nodes[node.index] = node
+        self.network[node.index] = []
+
+    def add_node_from_list(self, node_list):
         for i in range(len(node_list)):
-            if node_list[i].index in self.nodes:
-                raise "Label conflict: the label of each Node must be unique"
-            self.nodes[node_list[i].index] = node_list[i]
+            self.add_node(node_list[i])
 
     def add_link(self, start, end, cap):
         e = Edge(start, end, cap)
+        couple = (e.start, e.end)
         assert start in self.nodes and end in self.nodes
-        if e not in self.in_network_edges:
-            self.edges.append(e)
+        if couple not in self.in_network_edges:
             if e.start not in self.network:
                 self.network[e.start] = [e]
             else:
                 self.network[e.start].append(e)
-            self.in_network_edges[e] = None
+            self.in_network_edges[couple] = e
         else:
             print("Warning: you added an already existed edge (multiple edges are not handled)")
 
-    def add_multiple_link(self, start, index_list):
+    def add_link_from_list(self, start, index_list):
         for end, cap in index_list:
             self.add_link(start, end, cap)
+
+    def is_edge(self, start, end):
+        """return True only and only if the edge (start, end) exists in the graph"""
+        for e in self.network[start]:
+            if e.end == end:
+                return True
+        return False
 
 
 class FlowNetwork(Graph):
@@ -133,7 +143,7 @@ class FlowNetwork(Graph):
             print("Warning: you changed the sink of the Flow Network even though it was already defined")
 
     def get_path(self):
-        """Find a path from source to sink"""
+        """Find a path from source to sink and give its minimum cap"""
         assert self.source is not None and self.sink is not None
 
         def recursive_get_path(start):
@@ -149,18 +159,38 @@ class FlowNetwork(Graph):
 
         return recursive_get_path(self.source)
 
-    def max_flow(self):
-        """Compute the max flow of the flow network"""
+    def ford_fulkerson(self):
+        """Apply the ford-fulkerson algorithm to this flow network"""
         if self.source is None or self.sink is None:
-            raise "The source or sink is not correctly defined"
+            return -1
         elif self.source == self.sink:
             return 0
         else:
             flow = 0
-            while True:
-                res = self.get_path()
-                if res is None:
-                    return flow
-                flow += res[1]
-                for e in res[0]:
-                    e.flow += res[1]
+            residual = self.copy()
+            path = residual.get_path()
+            while path is not None:
+                flow += path[1]
+                for edges in path[0]:
+                    ce = (edges.start, edges.end)
+                    cre = (edges.end, edges.start)
+                    if not self.is_edge(ce[0], ce[1]):
+                        residual.in_network_edges[ce].cap -= path[1]
+                        self.in_network_edges[cre].flow -= path[1]
+                    else:
+                        if not residual.is_edge(cre[0], cre[1]):
+                            residual.add_link(edges.end, edges.start, edges.cap)
+                        residual.in_network_edges[cre].cap += path[1]
+                        self.in_network_edges[ce].flow += path[1]
+                path = residual.get_path()
+            return flow
+
+    def copy(self):
+        fn = FlowNetwork()
+        fn.add_node_from_list(list(self.nodes.values()))
+        for vertex in self.network.keys():
+            fn.network[vertex] = self.network[vertex].copy()
+            fn.in_network_edges = self.in_network_edges.copy()
+        fn.add_sink(self.sink)
+        fn.add_source(self.source)
+        return fn
