@@ -63,6 +63,11 @@ class Edge:
     def __str__(self):
         return "Edge from {0} to {1} having a residual cap of {2}".format(self.start, self.end, self.get_residual_cap())
 
+    def copy(self):
+        ce = Edge(self.start, self.end, self.cap)
+        ce.flow = self.flow
+        return ce
+
     def get_residual_cap(self):
         return self.cap - self.flow
 
@@ -70,24 +75,32 @@ class Edge:
 """
 Graph structure using adjacency list to represent graph
 Vertex (list): Stored in the 'nodes' list as Node object
-Edges (list): Stored in the 'edges' list as Edge object
+Edges (dict): Stored in the 'in_network_edges' dict key being (start, end) value being the Edge object
 Network (dict): storing all the links coming from an edge (represented by its index in list)
 """
 
 
 class Graph:
-    """Standard graph representation"""
+    """Standard graph representation
+    All vertex has an index from 0 to self.size (arg)
+    Allow only one edge (of modular cap) from one node to another
+    """
 
-    def __init__(self):
-        self.nodes = {}  # 'Set' of vertices
-        self.network = {}  # provide all successor of an edge
+    def __init__(self, size):
+        self.size = size  # Maximum cap
+        self.nodes = [None for _ in range(size)]  # Store the Node object for each label value
+        self.network = [[] for _ in range(size)]  # provide all successor of a node
         self.in_network_edges = {}  # Allow fast recognition of already existing edges
 
     def add_node(self, node):
-        if node.index in self.nodes:
-            raise "Label conflict: the label of each Node must be unique"
-        self.nodes[node.index] = node
-        self.network[node.index] = []
+        if node.index < self.size:
+            if self.nodes[node.index] is None:
+                self.nodes[node.index] = node
+                self.network[node.index] = []
+            else:
+                raise "Label conflict: the label of each Node must be unique"
+        else:
+            raise "This graph can only have node label < to its size ({})".format(self.size)
 
     def add_node_from_list(self, node_list):
         for i in range(len(node_list)):
@@ -95,16 +108,10 @@ class Graph:
 
     def add_link(self, start, end, cap):
         e = Edge(start, end, cap)
-        couple = (e.start, e.end)
-        assert start in self.nodes and end in self.nodes
-        if couple not in self.in_network_edges:
-            if e.start not in self.network:
-                self.network[e.start] = [e]
-            else:
-                self.network[e.start].append(e)
-            self.in_network_edges[couple] = e
-        else:
-            print("Warning: you added an already existed edge (multiple edges are not handled)")
+        couple = (start, end)
+        assert self.nodes[start] is not None and self.nodes[end] is not None
+        self.network[start].append(end)
+        self.in_network_edges[couple] = e
 
     def add_link_from_list(self, start, index_list):
         for end, cap in index_list:
@@ -112,44 +119,33 @@ class Graph:
 
     def is_edge(self, start, end):
         """return True only and only if the edge (start, end) exists in the graph"""
-        for e in self.network[start]:
-            if e.end == end:
-                return True
-        return False
+        return (start, end) in self.in_network_edges
 
     def find_edge(self, start, end):
         if self.is_edge(start, end):
-            for e in self.network[start]:
-                if e.end == end:
-                    return e
+            return self.in_network_edges[(start, end)]
         return None
 
 
 class FlowNetwork(Graph):
     """Flow Network implementation (one source, one sink)"""
 
-    def __init__(self):
-        super(FlowNetwork, self).__init__()
+    def __init__(self, size):
+        super(FlowNetwork, self).__init__(size)
         self.source = None
         self.sink = None
 
     def add_source(self, index):
-        if self.source is None:
-            assert index in self.nodes
-            self.source = index
-        else:
-            assert index in self.nodes
-            self.source = index
+        assert self.nodes[index] is not None
+        if self.source is not None:
             print("Warning: you changed the source of the Flow Network even though it was already defined")
+        self.source = index
 
     def add_sink(self, index):
-        if self.sink is None:
-            assert index in self.nodes
-            self.sink = index
-        else:
-            assert index in self.nodes
-            self.source = index
-            print("Warning: you changed the sink of the Flow Network even though it was already defined")
+        assert self.nodes[index] is not None
+        if self.sink is not None:
+            print("Warning: you changed the source of the Flow Network even though it was already defined")
+        self.sink = index
 
     def get_path_recursive(self):
         """Find a path from source to sink and give its minimum cap"""
@@ -158,7 +154,8 @@ class FlowNetwork(Graph):
         def recursive_get_path(start):
             if start == self.sink:
                 return [[], float('+inf')]
-            for e in self.network[start]:
+            for s in self.network[start]:
+                e = self.find_edge(start, s)
                 if e.get_residual_cap() > 0:
                     res = recursive_get_path(e.end)
                     if res is not None:
@@ -171,6 +168,7 @@ class FlowNetwork(Graph):
     def get_path(self):
         """Find a path from source to sink and give its minimum cap
         width-first-search
+        return all the edge of the path and the minimum residual cap along this path
         """
         assert self.source is not None and self.sink is not None
 
@@ -185,7 +183,8 @@ class FlowNetwork(Graph):
             deja_vu[v] = True
             if v == self.sink:
                 break
-            for e in self.network[v]:
+            for s in self.network[v]:
+                e = self.find_edge(v, s)  # Edge from v to s
                 if not deja_vu[e.end] and e.get_residual_cap() > 0:
                     file.add(e.end)
                     prev[e.end] = v
@@ -208,35 +207,34 @@ class FlowNetwork(Graph):
     def ford_fulkerson(self):
         """Apply the ford-fulkerson algorithm to this flow network"""
         if self.source is None or self.sink is None:
-            return -1
+            return None
         else:
             flow = 0
             residual = self.copy()
             path = residual.get_path()
-            count = 0
             while path is not None:
                 flow += path[1]
-                for edges in path[0]:
-                    ce = (edges.start, edges.end)
-                    cre = (edges.end, edges.start)
-                    if not self.is_edge(ce[0], ce[1]):
-                        residual.in_network_edges[ce].cap -= path[1]
-                        self.in_network_edges[cre].flow -= path[1]
+                for e in path[0]:
+                    if self.is_edge(e.start, e.end):
+                        if not residual.is_edge(e.end, e.start):
+                            residual.add_link(e.end, e.start, 0)
+                        residual.find_edge(e.end, e.start).cap += path[1]
+                        residual.find_edge(e.start, e.end).flow += path[1]
+                        self.find_edge(e.start, e.end).flow += path[1]
                     else:
-                        if not residual.is_edge(cre[0], cre[1]):
-                            residual.add_link(edges.end, edges.start, 0)
-                        residual.in_network_edges[cre].cap += path[1]
-                        self.in_network_edges[ce].flow += path[1]
+                        residual.find_edge(e.start, e.end).cap -= path[1]
+                        residual.find_edge(e.end, e.start).flow -= path[1]
+                        self.find_edge(e.end, e.start).flow -= path[1]
                 path = residual.get_path()
-                count += 1
             return flow
 
     def copy(self):
-        fn = FlowNetwork()
-        fn.add_node_from_list(list(self.nodes.values()))
-        for vertex in self.network.keys():
+        fn = FlowNetwork(self.size)
+        fn.nodes = self.nodes.copy()
+        for vertex in range(self.size):
             fn.network[vertex] = self.network[vertex].copy()
-            fn.in_network_edges = self.in_network_edges.copy()
+        for start, end in self.in_network_edges.keys():
+            fn.in_network_edges[(start, end)] = self.in_network_edges[(start, end)].copy()
         fn.add_sink(self.sink)
         fn.add_source(self.source)
         return fn

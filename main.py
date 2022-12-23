@@ -1,7 +1,7 @@
 from graph import SourceNode, ConsumerNode, NeutralNode, FlowNetwork
 
 if __name__ == '__main__':
-    fn = FlowNetwork()
+    fn = FlowNetwork(11)
     nodes = [
         SourceNode(value=2, label=0),
         NeutralNode(1),
